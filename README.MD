@@ -1,4 +1,6 @@
-# ShortcutRelayXBE
+# Xbox Discord Rich Presence
+
+The first Discord Rich Presence system designed specifically for the original Xbox.
 
 **ShortcutRelayXBE** is a simple launcher for the original Xbox.
 

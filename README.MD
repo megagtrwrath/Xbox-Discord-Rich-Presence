@@ -42,7 +42,7 @@ RelayPort=1102
 
 ## Setup (XBMC Python Script)
 1. Download `default.py` and `default.tbn` 
-2. Modify `SERVER_IP` to point at the machine running `xbdStats` (optionally, modify "DEFAULT_PATH" to the path of your choosing if you'd like to point the file browser at your primary game directory instead of individual drives).
+2. Modify `SERVER_IP` to point at the machine running `xbdStats` (optionally, modify `DEFAULT_PATH` to the path of your choosing if you'd like to point the file browser at your primary game directory instead of individual drives).
 3. Copy your modified `default.py` to `Q:/scripts/ShortcutRelayPy`
 2. In `XBMC`, select `Scripts`, then `ShortcutRelayPy`.
 3. Select the game you'd like to launch, and you're done!

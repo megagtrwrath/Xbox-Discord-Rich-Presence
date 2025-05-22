@@ -25,7 +25,9 @@ No menus. No dashboard. Just launch and go.
 
 1. Put `ShortcutRelayXBE.xbe` on your Xbox
 2. In the same folder, create a file named `shortcut.ini`
-3. Add this to the file:
+3. There are 3 listening modes in xbdStats-go, Websockets (Port 1101), UDP (Port 1102), TCP (Port 1103)
+4. If you plan on compiling yourself, use Debug, not Release.
+5. Add this to the file:
 
 ```
 [Shortcut]
@@ -45,6 +47,13 @@ RelayPort=1102
 2. In `XBMC`, select `Scripts`, then `ShortcutRelayPy`.
 3. Select the game you'd like to launch, and you're done!
 
+## Server
+
+1. [xbdStats](https://github.com/MobCat/xbdStats) python server.py is currently the fully tested version and has two listening modes. Websockets (Port 1101), and UDP (Port 1102).
+2. xbdStats-go has 3 listening modes Websockets (Port 1101), UDP (Port 1102), TCP (Port 1103).
+3. The Windows binary gets flagged as a trojan due to hueristics (Its not signed, and the source is available. Run it raw if you'd like, nothing sketchy.)
+4. xbdStats-go's macOS build doesn't like UDP.
+5. Linux is currently untested. Please report any bugs on the [Xbox-Scene Discord](https://discord.gg/xbox-scene) in the TeamUIX channel.
 ---
 
 ## Discord Integration

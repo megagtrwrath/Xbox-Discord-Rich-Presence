@@ -44,8 +44,9 @@ RelayPort=1102
 1. Download `default.py` and `default.tbn` 
 2. Modify `SERVER_IP` to point at the machine running `xbdStats` (optionally, modify `DEFAULT_PATH` to the path of your choosing if you'd like to point the file browser at your primary game directory instead of individual drives).
 3. Copy your modified `default.py` to `Q:/scripts/ShortcutRelayPy`
-2. In `XBMC`, select `Scripts`, then `ShortcutRelayPy`.
-3. Select the game you'd like to launch, and you're done!
+4. In `XBMC`, select `Scripts`, then `ShortcutRelayPy`.
+5. Select the game you'd like to launch, and you're done!
+6. (Optional) If you'd like to automatically clear your Discord Presence upon startup, copy 'clearpresence.py' to `Q:/scripts/ShortcutRelayPy`, and add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/ShortcutRelayPy/clearpresence.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default). You can modify the behaviour of this script (ie; showing your current dashboard) by changing `TITLE_ID` in `clearpresence.py` to the title ID of your choosing.
 
 ## Server
 

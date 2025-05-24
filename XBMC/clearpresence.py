@@ -4,7 +4,7 @@
 # |  _||  _  | | |   | | |  _  | | | || | | | | | | | | |
 # | |  | | | |_| |_  | | | | | \ \_/ /\ \_/ /_| |_| |/ / 
 # \_|  \_| |_/\___/  \_/ \_| |_/\___/  \___/ \___/|___/  
-# ClearPresence - Discord Rich Presence clearing script for XBMC4Xbox / XBMC4Gamers (and possibly XBMC360). For use with Mobcat/MrMilenko's "xbdStats" server + ShortcutRelayPy. To use on startup, add [ xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/ShortcutRelayPy/clearpresence.py)") to "autoexec.py" in your XBMC "scripts" folder (usually Q:/scripts) ] 
+# ClearPresence - Discord Rich Presence clearing script for XBMC4Xbox / XBMC4Gamers (and possibly XBMC360). For use with Mobcat/MrMilenko's "xbdStats" server + ShortcutRelayPy. To use on startup, add xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/ShortcutRelayPy/clearpresence.py)") to "autoexec.py" in your XBMC "scripts" folder (usually Q:/scripts) ] 
 
 import socket
 import json

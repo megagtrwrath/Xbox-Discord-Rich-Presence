@@ -1,14 +1,14 @@
 # Xbox Discord Rich Presence
 
-The first Discord Rich Presence system designed specifically for the original Xbox.
+The first Discord Rich Presence system designed specifically for Xbox and Xbox 360 Consoles
 
 **ShortcutRelayXBE** is a simple launcher for the original Xbox.
 
 You tell it what game or app to launch by editing a small config file, and it sends that game's TitleID to a Discord relay so your status can update.
 
-No menus. No dashboard. Just launch and go.
-
 **ShortcutRelayPy** is a Python script for **XBMC** that does the same thing, but with a spiffy dashboard wrapper.
+
+**xbdStats-go** is the Discord awareness `server` that runs on your PC. It's what tells Discord what you're playing.
 
 ---
 
@@ -51,10 +51,22 @@ RelayPort=1102
 ## Server
 
 1. [xbdStats](https://github.com/MobCat/xbdStats) python server.py is currently the fully tested version and has two listening modes. Websockets (Port 1101), and UDP (Port 1102).
-2. xbdStats-go has 3 listening modes Websockets (Port 1101), UDP (Port 1102), TCP (Port 1103).
+2. xbdStats-go has 3 listening modes Websockets (Port 1101), UDP (Port 1102), TCP (Port 1103) and `Xbox 360` support through utilizing the JRPC plugin family.
 3. The Windows binary gets flagged as a trojan due to hueristics (Its not signed, and the source is available. Run it raw if you'd like, nothing sketchy.)
 4. xbdStats-go's macOS build doesn't like UDP.
 5. Linux is currently untested. Please report any bugs on the [Xbox-Scene Discord](https://discord.gg/xbox-scene) in the TeamUIX channel.
+
+## Server (Xbox 360 Support)
+1. You must be using `xbdStats-go` and have a modded console running `dashlaunch` and `JRPC`.
+2. Configure the `xbdStats.ini` and make sure you download the `xbox360.json` place those in the same folder as your binary.
+```
+[Xbox360]
+IP=192.168.0.162 // Your consoles IP.
+PollInterval=30  // How often you want it to poll, 30 seconds seems fair.
+Verbose=0 // Extra logs, not really needed for regular use.
+Enabled=True // Enabled can be true or false. We dont want to hammer a non-existent console.
+```
+
 ---
 
 ## Discord Integration
@@ -80,5 +92,6 @@ When you use the shortcut (either the XBE or Python script), the server receives
 - **Milenko** - `xbeParse`, ini support, relay integration, cleanup.
 - **Team Resurgent** - Networking logic and xboxinternals.h from [PrometheOS](https://github.com/Team-Resurgent/PrometheOS-Firmware)
 - **faithvoid** - `XBMC` script integration and development.
+- **Emma(IPG)** - For discussing XBDM support this quit convo sent Milenko down a rabbithole.
 
 ---

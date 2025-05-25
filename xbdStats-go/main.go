@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +36,7 @@ type GameMessage struct {
 }
 
 var xbox360Titles = map[string]string{}
+var verbose360 = false
 
 func loadXbox360Titles(path string) {
 	file, err := os.Open(path)
@@ -80,7 +83,7 @@ func setPresence(titleID, titleName, xmid string) error {
 		largeImage = "https://raw.githubusercontent.com/MrMilenko/testgit/main/xbox360.png"
 		largeImage = fmt.Sprintf("http://xboxunity.net/Resources/Lib/Icon.php?tid=%s", titleID)
 		largeText = fmt.Sprintf("%s (Xbox 360)", titleName)
-		smallImage = "https://raw.githubusercontent.com/MrMilenko/testgit/main/xbox360.png"
+		smallImage = "https://raw.githubusercontent.com/OfficialTeamUIX/main/xbdStats-resources/xbox360.png"
 	default:
 		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
 		largeText = fmt.Sprintf("TitleID: %s", titleID)
@@ -113,6 +116,131 @@ func setPresence(titleID, titleName, xmid string) error {
 func clearPresence() {
 	// fake-clear by overwriting with a blank activity (literally no idea if this works)
 	_ = client.SetActivity(client.Activity{})
+}
+func parseConfig(path string) (string, time.Duration, bool, bool) {
+	enabled := false // default: off
+	file, err := os.Open(path)
+	if err != nil {
+		log.Printf("Could not open xbdStats.ini: %v", err)
+		return "", 0, false, false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	inSection := false
+	var ip string
+	interval := 2 * time.Second
+	verbose := false
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Normalize key matching
+		lowerLine := strings.ToLower(line)
+
+		if strings.HasPrefix(lowerLine, "[") && strings.HasSuffix(lowerLine, "]") {
+			inSection = lowerLine == "[xbox360]"
+			continue
+		}
+		if !inSection {
+			continue
+		}
+
+		if strings.HasPrefix(lowerLine, "ip=") {
+			ip = strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "ip=")):])
+		} else if strings.HasPrefix(lowerLine, "pollinterval=") {
+			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "pollinterval=")):])
+			if n, err := strconv.Atoi(val); err == nil {
+				interval = time.Duration(n) * time.Second
+			}
+		} else if strings.HasPrefix(lowerLine, "verbose=") {
+			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "verbose=")):])
+			val = strings.ToLower(val)
+			verbose = val == "1" || val == "true" || val == "yes"
+		} else if strings.HasPrefix(lowerLine, "enabled=") {
+			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "enabled=")):])
+			val = strings.ToLower(val)
+			enabled = val == "1" || val == "true" || val == "yes"
+		}
+	}
+
+	return ip, interval, verbose, enabled
+}
+
+func pollXbox360JRPC(ip string, interval time.Duration) {
+	var lastID string
+
+	for {
+		conn, err := net.DialTimeout("tcp", ip+":730", 2*time.Second)
+		if err != nil {
+			log.Printf("[Xbox360] JRPC connect failed: %v", err)
+			time.Sleep(interval)
+			continue
+		}
+
+		cmd := "consolefeatures ver=2 type=16 params=\"A\\\\0\\\\A\\\\0\\\\\"\r\n"
+		if _, err := conn.Write([]byte(cmd)); err != nil {
+			log.Printf("[Xbox360] Write error: %v", err)
+			conn.Close()
+			time.Sleep(interval)
+			continue
+		}
+
+		reader := bufio.NewReader(conn)
+		scanner := bufio.NewScanner(reader)
+
+		var foundValid bool
+
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if verbose360 && line != "201- connected" {
+				log.Printf("[Xbox360] Line: %q", line)
+			}
+
+			if strings.HasPrefix(line, "200-") {
+				parts := strings.Fields(line)
+				if len(parts) < 2 {
+					log.Printf("[Xbox360] Malformed 200- line: %q", line)
+					break
+				}
+
+				tid := strings.ToUpper(parts[1])
+				foundValid = true
+
+				if tid != lastID {
+					lastID = tid
+
+					var title string
+					if tid == "00000000" || tid == "FFFE07D1" {
+						title = "Dashboard"
+					} else if t, ok := xbox360Titles[tid]; ok {
+						title = t
+					} else {
+						title = "Unknown Title"
+					}
+
+					setPresence(tid, title, "XBOX360")
+					log.Printf("[Xbox360] Now Playing %s - %s", tid, title)
+				} else if verbose360 {
+					log.Printf("[Xbox360] No change (%s)", tid)
+				}
+
+				break
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			log.Printf("[Xbox360] Scanner error: %v", err)
+		} else if !foundValid && verbose360 {
+			log.Printf("[Xbox360] No title ID found in response.")
+		}
+
+		conn.Close()
+		time.Sleep(interval)
+	}
 }
 
 func lookupID(titleID string) (string, string) {
@@ -299,7 +427,7 @@ __  _| |__   __| / _\ |_  __ _| |_ ___
 \ \/ / '_ \ / _` + "`" + ` \ \| __|/ _` + "`" + ` | __/ __|
  >  <| |_) | (_| |\ \ |_  (_| | |_\__ \\
 /_/\_\_.__/ \__,_\__/\__|\__,_|\__|___/
-xbdStats-go Server 20250522
+xbdStats-go Server 20250525
 `)
 	log.Println("Loading Xbox 360 titles from xbox360.json")
 	loadXbox360Titles("xbox360.json")
@@ -310,6 +438,16 @@ xbdStats-go Server 20250522
 		clearPresence()
 		client.Logout() // note: doesn't return anything lol
 	}()
+
+	ip, interval, verbose, enabled := parseConfig("xbdStats.ini")
+	verbose360 = verbose
+
+	if enabled && ip != "" {
+		log.Printf("[Xbox360] Polling %s every %v (verbose: %v)", ip, interval, verbose360)
+		go pollXbox360JRPC(ip, interval)
+	} else {
+		log.Println("[Xbox360] Polling disabled via xbdStats.ini")
+	}
 
 	go handleTCP()
 	go handleUDP()

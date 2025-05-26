@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -33,6 +34,15 @@ type GameMessage struct {
 	ID    string `json:"id"`
 	Name  string `json:"name,omitempty"`
 	Xenon bool   `json:"xbox360,omitempty"` // xbox360 override, system still defaults to Xbox.
+}
+
+// Because not all operating systems are created equal, and go hates me.
+func getExecutableDir() string {
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Could not determine executable path: %v", err)
+	}
+	return filepath.Dir(exePath)
 }
 
 var xbox360Titles = map[string]string{}
@@ -80,10 +90,9 @@ func setPresence(titleID, titleName, xmid string) error {
 		largeText = titleName
 		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
 	case "XBOX360":
-		largeImage = "https://raw.githubusercontent.com/MrMilenko/testgit/main/xbox360.png"
 		largeImage = fmt.Sprintf("http://xboxunity.net/Resources/Lib/Icon.php?tid=%s", titleID)
 		largeText = fmt.Sprintf("%s (Xbox 360)", titleName)
-		smallImage = "https://raw.githubusercontent.com/OfficialTeamUIX/main/xbdStats-resources/xbox360.png"
+		smallImage = "https://raw.githubusercontent.com/OfficialTeamUIX/Xbox-Discord-Rich-Presence/main/xbdStats-resources/xbox360.png"
 	default:
 		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
 		largeText = fmt.Sprintf("TitleID: %s", titleID)
@@ -429,8 +438,14 @@ __  _| |__   __| / _\ |_  __ _| |_ ___
 /_/\_\_.__/ \__,_\__/\__|\__,_|\__|___/
 xbdStats-go Server 20250525
 `)
-	log.Println("Loading Xbox 360 titles from xbox360.json")
-	loadXbox360Titles("xbox360.json")
+
+	exeDir := getExecutableDir()
+
+	configPath := filepath.Join(exeDir, "xbdStats.ini")
+	titlesPath := filepath.Join(exeDir, "xbox360.json")
+
+	log.Printf("Loading Xbox 360 titles from %s", titlesPath)
+	loadXbox360Titles(titlesPath)
 	if err := connectRPC(); err != nil {
 		log.Fatalf("Could not connect to Discord: %v", err)
 	}
@@ -438,10 +453,8 @@ xbdStats-go Server 20250525
 		clearPresence()
 		client.Logout() // note: doesn't return anything lol
 	}()
-
-	ip, interval, verbose, enabled := parseConfig("xbdStats.ini")
+	ip, interval, verbose, enabled := parseConfig(configPath)
 	verbose360 = verbose
-
 	if enabled && ip != "" {
 		log.Printf("[Xbox360] Polling %s every %v (verbose: %v)", ip, interval, verbose360)
 		go pollXbox360JRPC(ip, interval)

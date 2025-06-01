@@ -10886,5 +10886,17 @@
     {
         "TitleID": "584108F9",
         "Title": "Sealife Safari"
+    },
+    {
+        "TitleID": "FFFF0055",
+        "Title": "XeXMenu"
+    },
+    {
+        "TitleID": "00000166",
+        "Title": "Aurora Dashboard"
+    },
+    {
+        "TitleID": "FFFE07D1",
+        "Title": "Xbox 360 Dashboard"
     }
 ]

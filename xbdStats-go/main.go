@@ -20,9 +20,14 @@ import (
 )
 
 const (
-	clientID = "1304454011503513600"
-	APIURL   = "https://mobcat.zip/XboxIDs"
-	CDNURL   = "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon"
+	clientIDXbox    = "1304454011503513600"
+	clientIDXbox360 = "1376699904453247117"
+	APIURL          = "https://mobcat.zip/XboxIDs"
+	CDNURL          = "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon"
+)
+
+var (
+	currentClientID string
 )
 
 type TitleLookup struct {
@@ -34,6 +39,24 @@ type GameMessage struct {
 	ID    string `json:"id"`
 	Name  string `json:"name,omitempty"`
 	Xenon bool   `json:"xbox360,omitempty"` // xbox360 override, system still defaults to Xbox.
+}
+
+func ensureConnected(xenon bool) error {
+	desiredID := clientIDXbox
+	if xenon {
+		desiredID = clientIDXbox360
+	}
+
+	if currentClientID != desiredID {
+		if currentClientID != "" {
+			client.Logout()
+		}
+		if err := client.Login(desiredID); err != nil {
+			return fmt.Errorf("failed to connect to Discord client: %w", err)
+		}
+		currentClientID = desiredID
+	}
+	return nil
 }
 
 // Because not all operating systems are created equal, and go hates me.
@@ -72,34 +95,30 @@ func loadXbox360Titles(path string) {
 	log.Printf("Loaded %d Xbox 360 titles", len(xbox360Titles))
 }
 
-func connectRPC() error {
-	return client.Login(clientID)
-}
+func setPresence(titleID, titleName, xmid string, xenon bool) error {
+	if err := ensureConnected(xenon); err != nil {
+		return err
+	}
 
-func setPresence(titleID, titleName, xmid string) error {
 	start := time.Now()
 
-	var largeImage string
-	var largeText string
-	var smallImage string
+	var largeImage, largeText, smallImage string
 
-	// default to mobcats api/icon sets.
-	switch xmid {
-	case "00000000":
-		largeImage = "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0FFE/0FFEEFF0.png"
-		largeText = titleName
-		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
-	case "XBOX360":
+	switch {
+	case xenon:
 		largeImage = fmt.Sprintf("http://xboxunity.net/Resources/Lib/Icon.php?tid=%s", titleID)
 		largeText = fmt.Sprintf("%s (Xbox 360)", titleName)
 		smallImage = "https://raw.githubusercontent.com/OfficialTeamUIX/Xbox-Discord-Rich-Presence/main/xbdStats-resources/xbox360.png"
+	case xmid == "00000000":
+		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
+		largeText = titleName
+		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
 	default:
 		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
 		largeText = fmt.Sprintf("TitleID: %s", titleID)
 		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
 	}
 
-	// Only include button if API gave a valid XMID
 	var buttons []*client.Button
 	if xmid != "00000000" {
 		buttons = []*client.Button{
@@ -179,93 +198,124 @@ func parseConfig(path string) (string, time.Duration, bool, bool) {
 	return ip, interval, verbose, enabled
 }
 
-func pollXbox360JRPC(ip string, interval time.Duration) {
+func pollXbox360JRPC(ip string, baseInterval time.Duration) {
 	var lastID string
+	var failCount int
+	interval := baseInterval
 
 	for {
+		var foundValid bool // <- now accessible everywhere
+
 		conn, err := net.DialTimeout("tcp", ip+":730", 2*time.Second)
 		if err != nil {
 			log.Printf("[Xbox360] JRPC connect failed: %v", err)
-			time.Sleep(interval)
-			continue
-		}
+			failCount++
+		} else {
+			cmd := "consolefeatures ver=2 type=16 params=\"A\\\\0\\\\A\\\\0\\\\\"\r\n"
+			if _, err := conn.Write([]byte(cmd)); err != nil {
+				log.Printf("[Xbox360] Write error: %v", err)
+				conn.Close()
+				failCount++
+			} else {
+				reader := bufio.NewReader(conn)
+				scanner := bufio.NewScanner(reader)
 
-		cmd := "consolefeatures ver=2 type=16 params=\"A\\\\0\\\\A\\\\0\\\\\"\r\n"
-		if _, err := conn.Write([]byte(cmd)); err != nil {
-			log.Printf("[Xbox360] Write error: %v", err)
-			conn.Close()
-			time.Sleep(interval)
-			continue
-		}
-
-		reader := bufio.NewReader(conn)
-		scanner := bufio.NewScanner(reader)
-
-		var foundValid bool
-
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if verbose360 && line != "201- connected" {
-				log.Printf("[Xbox360] Line: %q", line)
-			}
-
-			if strings.HasPrefix(line, "200-") {
-				parts := strings.Fields(line)
-				if len(parts) < 2 {
-					log.Printf("[Xbox360] Malformed 200- line: %q", line)
-					break
-				}
-
-				tid := strings.ToUpper(parts[1])
-				foundValid = true
-
-				if tid != lastID {
-					lastID = tid
-
-					var title string
-					if tid == "00000000" || tid == "FFFE07D1" {
-						title = "Dashboard"
-					} else if t, ok := xbox360Titles[tid]; ok {
-						title = t
-					} else {
-						title = "Unknown Title"
+				for scanner.Scan() {
+					line := strings.TrimSpace(scanner.Text())
+					if verbose360 && line != "201- connected" {
+						log.Printf("[Xbox360] Line: %q", line)
 					}
 
-					setPresence(tid, title, "XBOX360")
-					log.Printf("[Xbox360] Now Playing %s - %s", tid, title)
-				} else if verbose360 {
-					log.Printf("[Xbox360] No change (%s)", tid)
+					if strings.HasPrefix(line, "200-") {
+						parts := strings.Fields(line)
+						if len(parts) < 2 {
+							log.Printf("[Xbox360] Malformed 200- line: %q", line)
+							break
+						}
+
+						tid := strings.ToUpper(parts[1])
+						foundValid = true
+
+						if tid != lastID {
+							lastID = tid
+							var title string
+							if tid == "00000000" || tid == "FFFE07D1" {
+								title = "Dashboard"
+							} else if t, ok := xbox360Titles[tid]; ok {
+								title = t
+							} else {
+								title = "Unknown Title"
+							}
+
+							setPresence(tid, title, "XBOX360", true)
+							log.Printf("[Xbox360] Now Playing %s - %s", tid, title)
+						} else if verbose360 {
+							log.Printf("[Xbox360] No change (%s)", tid)
+						}
+						break
+					}
 				}
 
-				break
+				if err := scanner.Err(); err != nil {
+					log.Printf("[Xbox360] Scanner error: %v", err)
+				} else if !foundValid && verbose360 {
+					log.Printf("[Xbox360] No title ID found in response.")
+				}
+
+				conn.Close()
 			}
 		}
 
-		if err := scanner.Err(); err != nil {
-			log.Printf("[Xbox360] Scanner error: %v", err)
-		} else if !foundValid && verbose360 {
-			log.Printf("[Xbox360] No title ID found in response.")
+		// Backoff logic here has access to foundValid
+		if foundValid {
+			failCount = 0
+			interval = baseInterval
+		} else {
+			failCount++
+			switch {
+			case failCount >= 6:
+				interval = 30 * time.Minute
+			case failCount >= 3:
+				interval = 10 * time.Minute
+			default:
+				interval = baseInterval
+			}
 		}
 
-		conn.Close()
+		log.Printf("[Xbox360] Sleeping for %s (failCount=%d)", interval, failCount)
 		time.Sleep(interval)
 	}
 }
 
 func lookupID(titleID string) (string, string) {
-	url := fmt.Sprintf("%s/api.php?id=%s", APIURL, titleID)
+	tid := strings.ToUpper(titleID)
+
+	// Hardcoded fallback titles for known missing entries (ie: homebrew, dashboards, debug titles)
+	fallbackTitles := map[string]string{
+		"0FFEEFF0": "Dashboard",
+		"09999990": "XBMC",
+		"00CB2004": "XCAT",
+		"FFFF0055": "XeXMenu",
+	}
+
+	if name, ok := fallbackTitles[tid]; ok {
+		return "00000000", name
+	}
+
+	url := fmt.Sprintf("%s/api.php?id=%s", APIURL, tid)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Lookup error: %v", err)
-		return "00000000", "Unknown Title"
+		return "00000000", fallbackTitles["00000000"]
 	}
 	defer resp.Body.Close()
 
 	var result []TitleLookup
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || len(result) == 0 {
-		log.Printf("Invalid JSON or empty result for titleID %s", titleID)
-		return "00000000", "Unknown Title"
+		log.Printf("Invalid JSON or empty result for titleID %s", tid)
+		return "00000000", fallbackTitles["00000000"]
 	}
+
 	return result[0].XMID, result[0].FullName
 }
 
@@ -320,7 +370,7 @@ func handleTCP() {
 				}
 			}
 
-			setPresence(msg.ID, title, xmid)
+			setPresence(msg.ID, title, xmid, msg.Xenon)
 			log.Printf("[TCP] From %s: %s", c.RemoteAddr().String(), string(buf[:n]))
 			log.Printf("[TCP] Now Playing %s (%s) - %s [xenon: %v]", msg.ID, xmid, title, msg.Xenon)
 		}(conn)
@@ -369,7 +419,7 @@ func handleUDP() {
 			}
 		}
 
-		setPresence(msg.ID, title, xmid)
+		setPresence(msg.ID, title, xmid, msg.Xenon)
 		log.Printf("[UDP] From %s: %s", remote, string(buf[:n]))
 		log.Printf("[UDP] Now Playing %s (%s) - %s [xenon: %v]", msg.ID, xmid, title, msg.Xenon)
 	}
@@ -414,7 +464,7 @@ func handleWebsocket() {
 				}
 			}
 
-			setPresence(gm.ID, title, xmid)
+			setPresence(gm.ID, title, xmid, gm.Xenon)
 			log.Printf("[WebSocket] From %s: %s", conn.RemoteAddr().String(), string(msg))
 			log.Printf("[WebSocket] Now Playing %s (%s) - %s [xenon: %v]", gm.ID, xmid, title, gm.Xenon)
 		}
@@ -436,7 +486,7 @@ __  _| |__   __| / _\ |_  __ _| |_ ___
 \ \/ / '_ \ / _` + "`" + ` \ \| __|/ _` + "`" + ` | __/ __|
  >  <| |_) | (_| |\ \ |_  (_| | |_\__ \\
 /_/\_\_.__/ \__,_\__/\__|\__,_|\__|___/
-xbdStats-go Server 20250525
+xbdStats-go Server 20250531
 `)
 
 	exeDir := getExecutableDir()
@@ -444,11 +494,8 @@ xbdStats-go Server 20250525
 	configPath := filepath.Join(exeDir, "xbdStats.ini")
 	titlesPath := filepath.Join(exeDir, "xbox360.json")
 
-	log.Printf("Loading Xbox 360 titles from %s", titlesPath)
+	log.Printf("Loading Xbox 360 titles.")
 	loadXbox360Titles(titlesPath)
-	if err := connectRPC(); err != nil {
-		log.Fatalf("Could not connect to Discord: %v", err)
-	}
 	defer func() {
 		clearPresence()
 		client.Logout() // note: doesn't return anything lol

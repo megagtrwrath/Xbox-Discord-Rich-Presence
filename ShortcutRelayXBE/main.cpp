@@ -194,6 +194,15 @@ extern "C"
 #define DeviceX "\\Device\\Harddisk0\\Partition3"
 #define DeviceY "\\Device\\Harddisk0\\Partition4"
 #define DeviceZ "\\Device\\Harddisk0\\Partition5"
+//Cerbios Dual HDD Partitions
+#define DeviceC2 "\\Device\\Harddisk1\\Partition2"
+#define DeviceE2 "\\Device\\Harddisk1\\Partition1"
+#define DeviceF2 "\\Device\\Harddisk1\\Partition6"
+#define DeviceG2 "\\Device\\Harddisk1\\Partition7"
+//Don't know why these would be needed, but here we are!
+#define DeviceX2 "\\Device\\Harddisk1\\Partition3"
+#define DeviceY2 "\\Device\\Harddisk1\\Partition4"
+#define DeviceZ2 "\\Device\\Harddisk1\\Partition5"
 
 #define DriveC "\\??\\C:"
 #define DriveE "\\??\\E:"
@@ -202,6 +211,14 @@ extern "C"
 #define DriveX "\\??\\X:"
 #define DriveY "\\??\\Y:"
 #define DriveZ "\\??\\Z:"
+//Cerb Continued
+#define DriveC2 "\\??\\C2:"
+#define DriveE2 "\\??\\E2:"
+#define DriveF2 "\\??\\F2:"
+#define DriveG2 "\\??\\G2:"
+#define DriveX2 "\\??\\X2:"
+#define DriveY2 "\\??\\Y2:"
+#define DriveZ2 "\\??\\Z2:"
 
 LONG MountDevice(LPSTR sSymbolicLinkName, char *sDeviceName)
 {
@@ -225,6 +242,14 @@ void mountAllDrives()
     UnMountDevice(DriveE);
     UnMountDevice(DriveF);
     UnMountDevice(DriveG);
+	// Cerb continued
+	UnMountDevice(DriveX2);
+    UnMountDevice(DriveY2);
+    UnMountDevice(DriveZ2);
+    UnMountDevice(DriveC2);
+    UnMountDevice(DriveE2);
+    UnMountDevice(DriveF2);
+    UnMountDevice(DriveG2);
 
     MountDevice(DriveX, DeviceX);
     MountDevice(DriveY, DeviceY);
@@ -233,6 +258,14 @@ void mountAllDrives()
     MountDevice(DriveE, DeviceE);
     MountDevice(DriveF, DeviceF);
     MountDevice(DriveG, DeviceG);
+	//Cerb continued
+	MountDevice(DriveX2, DeviceX2);
+    MountDevice(DriveY2, DeviceY2);
+    MountDevice(DriveZ2, DeviceZ2);
+    MountDevice(DriveC2, DeviceC2);
+    MountDevice(DriveE2, DeviceE2);
+    MountDevice(DriveF2, DeviceF2);
+    MountDevice(DriveG2, DeviceG2);
 }
 
 // ------------------- XBE launcher -------------------
@@ -248,6 +281,14 @@ struct pathconv_s
     {"X:", "\\Device\\Harddisk0\\Partition3"},
     {"Y:", "\\Device\\Harddisk0\\Partition4"},
     {"Z:", "\\Device\\Harddisk0\\Partition5"},
+	//Cerb continued
+    {"C2:", "\\Device\\Harddisk1\\Partition2"},
+    {"E2:", "\\Device\\Harddisk1\\Partition1"},
+    {"F2:", "\\Device\\Harddisk1\\Partition6"},
+    {"G2:", "\\Device\\Harddisk1\\Partition7"},
+    {"X2:", "\\Device\\Harddisk1\\Partition3"},
+    {"Y2:", "\\Device\\Harddisk1\\Partition4"},
+    {"Z2:", "\\Device\\Harddisk1\\Partition5"},
     {NULL, NULL}};
 
 HRESULT LaunchXBE(char *XBEFile)

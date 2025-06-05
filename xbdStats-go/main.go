@@ -29,6 +29,7 @@ const (
 var (
 	currentClientID string
 )
+var tmdbAPIKey string
 
 type TitleLookup struct {
 	XMID     string `json:"XMID"`
@@ -38,7 +39,8 @@ type TitleLookup struct {
 type GameMessage struct {
 	ID    string `json:"id"`
 	Name  string `json:"name,omitempty"`
-	Xenon bool   `json:"xbox360,omitempty"` // xbox360 override, system still defaults to Xbox.
+	Xenon bool   `json:"xbox360,omitempty"` // Xbox 360
+	Media bool   `json:"media,omitempty"`   // XBMC Media
 }
 
 func ensureConnected(xenon bool) error {
@@ -95,49 +97,181 @@ func loadXbox360Titles(path string) {
 	log.Printf("Loaded %d Xbox 360 titles", len(xbox360Titles))
 }
 
-func setPresence(titleID, titleName, xmid string, xenon bool) error {
+type TMDbResult struct {
+	ID           int    `json:"id"`
+	Title        string `json:"title"`
+	Overview     string `json:"overview"`
+	PosterPath   string `json:"poster_path"`
+	BackdropPath string `json:"backdrop_path"`
+}
+
+func fetchTMDBTrailerURL(tmdbID int) (string, error) {
+	if tmdbAPIKey == "" {
+		return "", fmt.Errorf("TMDb API key not set")
+	}
+
+	url := fmt.Sprintf("https://api.themoviedb.org/3/movie/%d/videos?api_key=%s", tmdbID, tmdbAPIKey)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("TMDb trailer fetch failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var parsed struct {
+		Results []struct {
+			Key      string `json:"key"`
+			Site     string `json:"site"`
+			Type     string `json:"type"`
+			Official bool   `json:"official"`
+		} `json:"results"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return "", fmt.Errorf("TMDb trailer decode failed: %w", err)
+	}
+
+	for _, vid := range parsed.Results {
+		if vid.Site == "YouTube" && vid.Type == "Trailer" {
+			return "https://www.youtube.com/watch?v=" + vid.Key, nil
+		}
+	}
+
+	return "", fmt.Errorf("no trailer found")
+}
+
+func fetchTMDBByIMDb(imdbID string) (*TMDbResult, error) {
+	if tmdbAPIKey == "" {
+		return nil, fmt.Errorf("TMDb API key not set")
+	}
+
+	url := fmt.Sprintf("https://api.themoviedb.org/3/find/%s?api_key=%s&external_source=imdb_id", imdbID, tmdbAPIKey)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("TMDb request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("TMDb returned status %d", resp.StatusCode)
+	}
+
+	var parsed struct {
+		MovieResults []TMDbResult `json:"movie_results"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("TMDb decode failed: %w", err)
+	}
+
+	if len(parsed.MovieResults) == 0 {
+		return nil, fmt.Errorf("no TMDb movie results found for IMDb ID: %s", imdbID)
+	}
+
+	tmdb := parsed.MovieResults[0]
+
+	log.Printf("[TMDb] Title: %s | Poster: %s | Overview: %.64s...",
+		tmdb.Title, tmdb.PosterPath, tmdb.Overview)
+
+	return &tmdb, nil
+}
+
+func setPresence(titleID, titleName, xmid string, xenon bool, media bool) error {
 	if err := ensureConnected(xenon); err != nil {
 		return err
 	}
 
 	start := time.Now()
 
-	var largeImage, largeText, smallImage string
+	var (
+		largeImage, largeText, smallImage string
+		state                             string
+		buttons                           []*client.Button
+	)
 
 	switch {
+	case media:
+		if err := ensureConnected(false); err != nil {
+			return err
+		}
+
+		tmdb, err := fetchTMDBByIMDb(titleID)
+		if err != nil {
+			log.Printf("[TMDb Error] %v", err)
+			titleName = "Unknown Title"
+			largeText = "Media info not found."
+			state = "Unlisted content"
+			largeImage = "xbmc"
+			break
+		}
+
+		titleName = fmt.Sprintf("%s", tmdb.Title)
+
+		largeText = tmdb.Overview
+		if len(largeText) > 128 {
+			largeText = largeText[:125] + "..."
+		}
+
+		if tmdb.PosterPath != "" {
+			largeImage = "https://image.tmdb.org/t/p/w500" + tmdb.PosterPath
+		} else if tmdb.BackdropPath != "" {
+			largeImage = "https://image.tmdb.org/t/p/w500" + tmdb.BackdropPath
+		} else {
+			largeImage = "xbmc"
+		}
+
+		state = "Now Playing on XBMC"
+		smallImage = "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png"
+
 	case xenon:
 		largeImage = fmt.Sprintf("http://xboxunity.net/Resources/Lib/Icon.php?tid=%s", titleID)
 		largeText = fmt.Sprintf("%s (Xbox 360)", titleName)
 		smallImage = "https://raw.githubusercontent.com/OfficialTeamUIX/Xbox-Discord-Rich-Presence/main/xbdStats-resources/xbox360.png"
+
 	case xmid == "00000000":
 		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
 		largeText = titleName
 		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
+
 	default:
 		largeImage = fmt.Sprintf("%s/%s/%s.png", CDNURL, titleID[:4], titleID)
 		largeText = fmt.Sprintf("TitleID: %s", titleID)
 		smallImage = "https://cdn.discordapp.com/avatars/1304454011503513600/6be191f921ebffb2f9a52c1b6fc26dfa"
 	}
 
-	var buttons []*client.Button
-	if xmid != "00000000" {
+	// Append buttons *after* switch to prevent overwrite issues
+
+	if media {
+
 		buttons = []*client.Button{
 			{
-				Label: "Title Info",
-				Url:   fmt.Sprintf("%s/title.php?%s", APIURL, xmid),
+				Label: "View on IMDb",
+				Url:   fmt.Sprintf("https://www.imdb.com/title/%s", titleID),
 			},
 		}
 	}
 
+	if !media && xmid != "00000000" {
+		buttons = append(buttons, &client.Button{
+			Label: "Title Info",
+			Url:   fmt.Sprintf("%s/title.php?%s", APIURL, xmid),
+		})
+	}
+
+	// Relay button info, this will eventually be removed from public view. Left in place for debugging media :) - Milenko
+	for _, b := range buttons {
+		log.Printf("[Button] %s -> %s", b.Label, b.Url)
+	}
+
 	return client.SetActivity(client.Activity{
-		Details: titleName,
-		Timestamps: &client.Timestamps{
-			Start: &start,
-		},
+		Details:    titleName,
+		State:      state,
 		LargeImage: largeImage,
 		LargeText:  largeText,
 		SmallImage: smallImage,
-		Buttons:    buttons,
+		Timestamps: &client.Timestamps{
+			Start: &start,
+		},
+		Buttons: buttons,
 	})
 }
 
@@ -157,6 +291,7 @@ func parseConfig(path string) (string, time.Duration, bool, bool) {
 	scanner := bufio.NewScanner(file)
 	inSection := false
 	var ip string
+	inMediaSection := false
 	interval := 2 * time.Second
 	verbose := false
 
@@ -166,13 +301,20 @@ func parseConfig(path string) (string, time.Duration, bool, bool) {
 			continue
 		}
 
-		// Normalize key matching
 		lowerLine := strings.ToLower(line)
 
 		if strings.HasPrefix(lowerLine, "[") && strings.HasSuffix(lowerLine, "]") {
 			inSection = lowerLine == "[xbox360]"
+			inMediaSection = lowerLine == "[media]"
 			continue
 		}
+
+		if inMediaSection && strings.HasPrefix(lowerLine, "tmdb_api_key=") {
+			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "tmdb_api_key=")):])
+			tmdbAPIKey = val
+			continue
+		}
+
 		if !inSection {
 			continue
 		}
@@ -192,7 +334,11 @@ func parseConfig(path string) (string, time.Duration, bool, bool) {
 			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "enabled=")):])
 			val = strings.ToLower(val)
 			enabled = val == "1" || val == "true" || val == "yes"
+		} else if inMediaSection && strings.HasPrefix(lowerLine, "tmdb_api_key=") {
+			val := strings.TrimSpace(line[len(line)-len(strings.TrimPrefix(lowerLine, "tmdb_api_key=")):])
+			tmdbAPIKey = val
 		}
+
 	}
 
 	return ip, interval, verbose, enabled
@@ -247,7 +393,7 @@ func pollXbox360JRPC(ip string, baseInterval time.Duration) {
 								title = "Unknown Title"
 							}
 
-							setPresence(tid, title, "XBOX360", true)
+							setPresence(tid, title, "XBOX360", true, false)
 							log.Printf("[Xbox360] Now Playing %s - %s", tid, title)
 						} else if verbose360 {
 							log.Printf("[Xbox360] No change (%s)", tid)
@@ -370,7 +516,7 @@ func handleTCP() {
 				}
 			}
 
-			setPresence(msg.ID, title, xmid, msg.Xenon)
+			setPresence(msg.ID, title, xmid, msg.Xenon, msg.Media)
 			log.Printf("[TCP] From %s: %s", c.RemoteAddr().String(), string(buf[:n]))
 			log.Printf("[TCP] Now Playing %s (%s) - %s [xenon: %v]", msg.ID, xmid, title, msg.Xenon)
 		}(conn)
@@ -419,7 +565,7 @@ func handleUDP() {
 			}
 		}
 
-		setPresence(msg.ID, title, xmid, msg.Xenon)
+		setPresence(msg.ID, title, xmid, msg.Xenon, msg.Media)
 		log.Printf("[UDP] From %s: %s", remote, string(buf[:n]))
 		log.Printf("[UDP] Now Playing %s (%s) - %s [xenon: %v]", msg.ID, xmid, title, msg.Xenon)
 	}
@@ -464,7 +610,7 @@ func handleWebsocket() {
 				}
 			}
 
-			setPresence(gm.ID, title, xmid, gm.Xenon)
+			setPresence(gm.ID, title, xmid, gm.Xenon, gm.Media)
 			log.Printf("[WebSocket] From %s: %s", conn.RemoteAddr().String(), string(msg))
 			log.Printf("[WebSocket] Now Playing %s (%s) - %s [xenon: %v]", gm.ID, xmid, title, gm.Xenon)
 		}
@@ -486,7 +632,7 @@ __  _| |__   __| / _\ |_  __ _| |_ ___
 \ \/ / '_ \ / _` + "`" + ` \ \| __|/ _` + "`" + ` | __/ __|
  >  <| |_) | (_| |\ \ |_  (_| | |_\__ \\
 /_/\_\_.__/ \__,_\__/\__|\__,_|\__|___/
-xbdStats-go Server 20250531
+xbdStats-go Server 20250605
 `)
 
 	exeDir := getExecutableDir()

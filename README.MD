@@ -66,7 +66,12 @@ PollInterval=30  // How often you want it to poll, 30 seconds seems fair.
 Verbose=0 // Extra logs, not really needed for regular use.
 Enabled=True // Enabled can be true or false. We dont want to hammer a non-existent console.
 ```
-
+## Server (XBMC TMDB Support) (BETA/In-Development)
+1. You need to use a `TMDB` API key, you can get one from [TMDB](https://www.themoviedb.org/settings/api). Set it in the `xbdStats.ini` file under the `[media]` section.
+2. This feature is just a playful demo right now, it only works on `TCP`, the Demo Payload below will show you as watching Ghostbusters on Discord.
+```
+{"id":"tt0087332","media":true}
+```
 ---
 
 ## Discord Integration

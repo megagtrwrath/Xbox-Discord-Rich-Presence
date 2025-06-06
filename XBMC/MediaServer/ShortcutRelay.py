@@ -133,18 +133,21 @@ def main():
 
     folder_name = os.path.basename(os.path.dirname(xbe_path))
     titleid = None
+    is_xex = xbe_path.lower().endswith('.xex')
 
-    if xbe_path.lower().endswith('.xex'):
+    if is_xex:
         titleid = read_titleid_xex(xbe_path)
     else:
         titleid = read_titleid(xbe_path)
 
     payload = {
-        'id': titleid if titleid else folder_name
+        'id': titleid if titleid else folder_name,
+        'xbox360': True if is_xex else False,
+        'game': False if is_xex else True
     }
 
     if send_to_server(payload, server_ip):
-        if xbe_path.lower().endswith('.xex'):
+        if is_xex:
             launch_game_xex(xbe_path)
         else:
             launch_game(xbe_path)

@@ -134,6 +134,7 @@ def main():
     if not server_ip:
         print('No xbdStats server found. Exiting.')
         return
+    send_to_server(None, None, None, None, server_ip)  # Clear presence on startup
     try:
         while True:
             idval, season, episode = get_now_playing()

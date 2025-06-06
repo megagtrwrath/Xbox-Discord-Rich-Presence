@@ -140,11 +140,11 @@ def main():
     else:
         titleid = read_titleid(xbe_path)
 
-    payload = {
-        'id': titleid if titleid else folder_name,
-        'xbox360': True if is_xex else False,
-        'game': False if is_xex else True
-    }
+    payload = {'id': titleid if titleid else folder_name}
+    if is_xex:
+        payload['xbox360'] = True
+    else:
+        payload['game'] = True
 
     if send_to_server(payload, server_ip):
         if is_xex:

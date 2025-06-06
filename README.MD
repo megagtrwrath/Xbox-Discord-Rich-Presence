@@ -53,7 +53,7 @@ RelayPort=1102
 2. Copy `ShortcutRelay.py` to `Q:/scripts/ShortcutRelay/default.py`
 3. Copy `MediaPresence.py` to `Q:/scripts/MediaPresence/default.py`
 4. Run the modified "xbdStats-media.py" file on your host machine (this will **NOT** work with Milenko or MobCat's version!)
-5. In `XBMC`, select `Scripts`, then `ShortcutRelay` if you want to launch a game, or `MediaPresence`.
+5. In `XBMC`, select `Scripts`, then `ShortcutRelay` if you want to launch a game, or `MediaPresence`. (a **128MB Xbox** is recommended for MediaPresence due to RAM issues with larger video files, but smaller files should work fine for 64MB systems!)
 6. ???
 7. Profit!
 8. (Optional) If you'd like to automatically launch Media Presence upon startup, add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/MediaPresence/default.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default).

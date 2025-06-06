@@ -147,7 +147,7 @@ def main():
                 # If nothing is playing now but something was previously sent, send a clear signal
                 send_to_server("", None, None, None, server_ip)
                 last_sent = (None, None, None)
-            time.sleep(5)
+            time.sleep(10)
     except KeyboardInterrupt:
         pass
 

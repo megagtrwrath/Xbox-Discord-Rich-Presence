@@ -48,6 +48,16 @@ RelayPort=1102
 5. Select the game you'd like to launch, and you're done!
 6. (Optional) If you'd like to automatically clear your Discord Presence upon startup, copy 'clearpresence.py' to `Q:/scripts/ShortcutRelayPy`, and add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/ShortcutRelayPy/clearpresence.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default). You can modify the behaviour of this script (ie; showing your current dashboard) by changing `TITLE_ID` in `clearpresence.py` to the title ID of your choosing.
 
+## Setup (XBMC "Media Edition" Script - Experimental!)
+1. Download `ShortcutRelay.py`, `MediaPresence.py` and `xbdStats-media.py` from the "XBMC/MediaServer" section of the repository
+2. Copy `ShortcutRelay.py` to `Q:/scripts/ShortcutRelay/default.py`
+3. Copy `MediaPresence.py` to `Q:/scripts/MediaPresence/default.py`
+4. Run the modified "xbdStats-media.py" file on your host machine (this will **NOT** work with Milenko or MobCat's version!)
+5. In `XBMC`, select `Scripts`, then `ShortcutRelay` if you want to launch a game, or `MediaPresence`.
+6. ???
+7. Profit!
+8. (Optional) If you'd like to automatically launch Media Presence upon startup, add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/MediaPresence/default.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default).
+
 ## Server
 
 1. [xbdStats](https://github.com/MobCat/xbdStats) python server.py is currently the fully tested version and has two listening modes. Websockets (Port 1101), and UDP (Port 1102).
@@ -98,5 +108,5 @@ When you use the shortcut (either the XBE or Python script), the server receives
 - **Team Resurgent** - Networking logic and xboxinternals.h from [PrometheOS](https://github.com/Team-Resurgent/PrometheOS-Firmware)
 - **faithvoid** - `XBMC` script integration and development.
 - **Emma(IPG)** - For discussing XBDM support this quit convo sent Milenko down a rabbithole.
-
+- **TheTVDB**, **The Movie Database** & **MusicBrainz** - For the free API functionality!
 ---

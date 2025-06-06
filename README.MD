@@ -57,6 +57,7 @@ RelayPort=1102
 6. ???
 7. Profit!
 8. (Optional) If you'd like to automatically launch Media Presence upon startup, add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/MediaPresence/default.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default).
+(Please note that this version of the xbdStats server does NOT support the Xbox 360 at all, this is solely for the original Xbox until further notice).
 
 ## Server
 

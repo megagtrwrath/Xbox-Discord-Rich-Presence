@@ -12,7 +12,6 @@ SERVER_PORT = 1102
 
 # Listen for "XBDSTATS_ONLINE" and automagically connect.
 def discover_server(timeout=10):
-    """Listen for XBDSTATS_ONLINE UDP broadcasts and return the sender's IP."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.bind(('', SERVER_PORT))

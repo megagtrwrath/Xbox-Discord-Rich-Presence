@@ -109,5 +109,6 @@ When you use the shortcut (either the XBE or Python script), the server receives
 - **Team Resurgent** - Networking logic and xboxinternals.h from [PrometheOS](https://github.com/Team-Resurgent/PrometheOS-Firmware)
 - **faithvoid** - `XBMC` script integration and development.
 - **Emma(IPG)** - For discussing XBDM support this quit convo sent Milenko down a rabbithole.
+- **Scotch** - Research, development & testing on XBMC 4.0.
 - **TheTVDB**, **The Movie Database** & **MusicBrainz** - For the free API functionality!
 ---

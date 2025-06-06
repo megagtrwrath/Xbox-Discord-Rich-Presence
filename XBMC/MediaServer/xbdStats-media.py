@@ -8,6 +8,10 @@ import threading
 from discordrp import Presence
 from websockets.legacy.server import WebSocketServerProtocol as wetSocks
 import re
+import os
+
+# Xbox 360 title stuff
+xbox360_titles = {}
 
 # Discord API Client ID
 clientID = "1304454011503513600"
@@ -18,12 +22,33 @@ APIURL = "https://mobcat.zip/XboxIDs"
 CDNURL = "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon"
 MUSIC_LARGE = "https://cdn.discordapp.com/app-assets/1379734520508579960/1380359849233092659.png"
 MUSIC_SMALL = "https://cdn.discordapp.com/app-assets/1379734520508579960/1379736461946916874.png"
+XBMC_LOGO = "https://cdn.discordapp.com/app-assets/1379734520508579960/1379735600613167104.png"
 
 # API Keys
 TMDB_API_KEY = "YOURAPIKEYHERE" # Required for TMDB usage!
 TVDB_API_KEY = "YOURAPIKEYHERE" # Required for TVDB usage!
 _tvdb_jwt = None
 _tvdb_jwt_time = 0
+
+# More Xbox 360 title stuff
+def load_xbox360_titles():
+    global xbox360_titles
+    try:
+        # Load xbox360.json from the same directory as this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        xbox360_path = os.path.join(script_dir, "xbox360.json")
+        with open(xbox360_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            for entry in data:
+                tid = entry.get("TitleID", "").upper()
+                name = entry.get("Title", "")
+                if tid and name:
+                    xbox360_titles[tid] = name
+        print(f"[Xbox360] Loaded {len(xbox360_titles)} titles from {xbox360_path}")
+    except Exception as e:
+        print(f"[Xbox360] Failed to load xbox360.json: {e}")
+
+load_xbox360_titles()
 
 # Broadcast "XBDSTATS_ONLINE" for auto-discovery
 def broadcast_online(port=1102, interval=3):
@@ -172,14 +197,15 @@ def fetch_tmdb_by_imdb(imdb_id):
         print(f"[TMDB ERROR] {e}")
         return None
 
-# Clusterfuck of code ahoy! tl;dr this builds presence information depending on whether the information received is music, television, movies, or games.
+# Clusterfuck of uncommented code ahoy! tl;dr this builds presence information depending on whether the information received is music, television, movies, or games.
 def build_presence(dataIn):
     is_media = dataIn.get("media", False)
     is_music = dataIn.get("music", False)
+    is_game = dataIn.get("game", False)
+    is_xbox360 = dataIn.get("xbox360", False) or dataIn.get("Xenon", False)
     xbmc_state = "Now Listening - XBMC" if is_music else "Now Playing - XBMC"
     idstr = dataIn.get("id", "")
     presenceData = {}
-    buttons = []
     log_string = ""
 
     # Weird fix for music presence issues. Music function takes priority above all else, if the received media isn't music, it defaults to TVDB/TMDB instead.
@@ -201,6 +227,23 @@ def build_presence(dataIn):
             "instance": True,
         }
         log_string = f"Now Listening {idstr} - {TitleName}"
+
+    elif is_xbox360:
+        inTitleID = idstr.upper()
+        title = xbox360_titles.get(inTitleID, dataIn.get("name", "Unknown Title"))
+        presenceData = {
+            "type": 0,
+            "details": title,
+            "timestamps": {"start": int(time.time())},
+            "assets": {
+                "large_image": f"http://xboxunity.net/Resources/Lib/Icon.php?tid={inTitleID}",
+                "large_text": f"{title} (Xbox 360)",
+                "small_image": "https://raw.githubusercontent.com/OfficialTeamUIX/Xbox-Discord-Rich-Presence/main/xbdStats-resources/xbox360.png",
+            },
+            "instance": True,
+        }
+        log_string = f"Now Playing {inTitleID} (Xbox 360) - {title}"
+
     elif is_valid_imdb_id(idstr):
         tmdb = fetch_tmdb_by_imdb(idstr)
         if tmdb:
@@ -215,9 +258,8 @@ def build_presence(dataIn):
                 "state": xbmc_state,
                 "timestamps": {"start": int(time.time())},
                 "assets": {
-                    "large_image": poster_url if poster_url else "xbmc",
+                    "large_image": poster_url if poster_url else XBMC_LOGO,
                     "large_text": large_text,
-                    "small_image": "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png",
                 },
                 "instance": True,
                 "buttons": [{"label": "View on IMDb", "url": f"https://www.imdb.com/title/{idstr}"}],
@@ -231,14 +273,15 @@ def build_presence(dataIn):
                 "state": "Unlisted content",
                 "timestamps": {"start": int(time.time())},
                 "assets": {
-                    "large_image": "xbmc",
+                    "large_image": XBMC_LOGO,
                     "large_text": "Media info not found.",
                     "small_image": "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png",
                 },
                 "instance": True,
             }
             log_string = f"Now Playing {idstr} - {fallback_title}"
-    elif is_tvdb_episode_id(idstr):
+
+    elif is_tvdb_episode_id(idstr) and not is_game:
         tvdb_ep = fetch_tvdb("episode", idstr)
         if tvdb_ep:
             ep_title, overview, poster_url, aired_season, aired_episode, series_name, series_id = tvdb_ep
@@ -255,9 +298,8 @@ def build_presence(dataIn):
                 "state": xbmc_state,
                 "timestamps": {"start": int(time.time())},
                 "assets": {
-                    "large_image": poster_url if poster_url else "xbmc",
+                    "large_image": poster_url if poster_url else XBMC_LOGO,
                     "large_text": large_text,
-                    "small_image": "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png",
                 },
                 "instance": True,
                 "buttons": [{"label": "View on TVDB", "url": f"https://www.thetvdb.com/series/{series_id}/episodes/{idstr}"}],
@@ -271,14 +313,15 @@ def build_presence(dataIn):
                 "state": "Unlisted content",
                 "timestamps": {"start": int(time.time())},
                 "assets": {
-                    "large_image": "xbmc",
+                    "large_image": XBMC_LOGO,
                     "large_text": "Media info not found.",
                     "small_image": "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png",
                 },
                 "instance": True,
             }
             log_string = f"Now Playing {idstr} - {fallback_title}"
-    elif is_media or is_music:  # Fallback for media/music with no match above
+
+    elif is_media or is_music:
         fallback_title = fallback_title_from_filename(idstr) if is_filename(idstr) else idstr
         xbmc_state = "Now Listening - XBMC" if is_music else "Now Playing - XBMC"
         presenceData = {
@@ -287,14 +330,14 @@ def build_presence(dataIn):
             "state": xbmc_state,
             "timestamps": {"start": int(time.time())},
             "assets": {
-                "large_image": "xbmc",
+                "large_image": XBMC_LOGO,
                 "large_text": "Media info not found.",
-                "small_image": "https://raw.githubusercontent.com/MobCat/MobCats-original-xbox-game-list/main/icon/0999/09999990.png",
             },
             "instance": True,
         }
         log_string = f"{xbmc_state} {idstr} - {fallback_title}"
-    else:  # Fallback for games
+
+    elif is_game:
         XMID, TitleName = lookupID(dataIn['id'])
         inTitleID = dataIn['id'].upper()
         presenceData = {
@@ -313,9 +356,10 @@ def build_presence(dataIn):
         elif 'name' in dataIn and dataIn['name']:
             presenceData['details'] = dataIn['name']
         log_string = f"Now Playing {dataIn['id']} - {TitleName}"
+
     return presenceData, log_string
 
-# Check if the received information is a filename or not - probably needs work
+# Check if the received information is a filename or not
 def is_filename(idstr):
     idstr = idstr.lower()
     return idstr.endswith('.mkv') or idstr.endswith('.mp4') or idstr.endswith('.avi')
@@ -328,7 +372,7 @@ def fallback_title_from_filename(filename):
     name = re.sub(r'\s+', ' ', name)
     return name.strip().title()
 
-# Check if received input is IMDB ID or not 
+# Check if received input is IMDB ID or not
 def is_valid_imdb_id(imdb_id):
     return bool(re.fullmatch(r"tt\d{7,}", imdb_id))
 
@@ -336,7 +380,7 @@ def is_valid_imdb_id(imdb_id):
 def getIP():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s.connect(('10.255.255.255', 1))
+        s.connect(('255.255.255.255', 1))
         IP = s.getsockname()[0]
     except:
         IP = '127.0.0.1'

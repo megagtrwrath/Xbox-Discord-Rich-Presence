@@ -27,8 +27,14 @@ XBMC_LOGO = "https://cdn.discordapp.com/app-assets/1379734520508579960/137973560
 # API Keys
 TMDB_API_KEY = "YOURAPIKEYHERE" # Required for TMDB usage!
 TVDB_API_KEY = "YOURAPIKEYHERE" # Required for TVDB usage!
+YOUTUBE_API = "YOURAPIKEYHERE" # This doesn't do anything yet. 
+SPOTIFY_API = "YOURAPIKEYHERE" # This doesn't do anything yet.
 _tvdb_jwt = None
 _tvdb_jwt_time = 0
+
+# Music sources, toggle True/False depending on what you want to display.
+YouTube = True
+Spotify = True
 
 # More Xbox 360 title stuff
 def load_xbox360_titles():
@@ -215,6 +221,18 @@ def build_presence(dataIn):
         if artist and track:
             mb_title, mb_artist, mb_cover = fetch_musicbrainz_info(artist, track)
         TitleName = f"{mb_artist} - {mb_title}" if mb_title and mb_artist else idstr
+        buttons = []
+        if mb_artist and mb_title:
+            import urllib.parse
+            if 'YouTube' in globals() and YouTube:
+                yt_query = urllib.parse.quote(f"{mb_artist} {mb_title}")
+                yt_url = f"https://www.youtube.com/results?search_query={yt_query}"
+                buttons.append({"label": "Listen on YouTube", "url": yt_url})
+            if 'Spotify' in globals() and Spotify:
+                sp_query = urllib.parse.quote(f"{mb_artist} {mb_title}")
+                sp_url = f"https://open.spotify.com/search/{sp_query}"
+                buttons.append({"label": "Listen on Spotify", "url": sp_url})
+
         presenceData = {
             "type": 0,
             "details": TitleName,
@@ -226,7 +244,9 @@ def build_presence(dataIn):
             },
             "instance": True,
         }
-        log_string = f"Now Listening {idstr} - {TitleName}"
+        if buttons:
+            presenceData["buttons"] = buttons
+        log_string = f"Now Listening: {idstr} - {TitleName}"
 
     elif is_xbox360:
         inTitleID = idstr.upper()
@@ -242,7 +262,7 @@ def build_presence(dataIn):
             },
             "instance": True,
         }
-        log_string = f"Now Playing {inTitleID} (Xbox 360) - {title}"
+        log_string = f"Now Playing: {inTitleID} (Xbox 360) - {title}"
 
     elif is_valid_imdb_id(idstr):
         tmdb = fetch_tmdb_by_imdb(idstr)
@@ -264,7 +284,7 @@ def build_presence(dataIn):
                 "instance": True,
                 "buttons": [{"label": "View on IMDb", "url": f"https://www.imdb.com/title/{idstr}"}],
             }
-            log_string = f"Now Playing {idstr} - {title}"
+            log_string = f"Now Playing: {idstr} - {title}"
         else:
             fallback_title = fallback_title_from_filename(idstr) if is_filename(idstr) else idstr
             presenceData = {
@@ -279,7 +299,7 @@ def build_presence(dataIn):
                 },
                 "instance": True,
             }
-            log_string = f"Now Playing {idstr} - {fallback_title}"
+            log_string = f"Now Playing: {idstr} - {fallback_title}"
 
     elif is_tvdb_episode_id(idstr) and not is_game:
         tvdb_ep = fetch_tvdb("episode", idstr)
@@ -304,7 +324,7 @@ def build_presence(dataIn):
                 "instance": True,
                 "buttons": [{"label": "View on TVDB", "url": f"https://www.thetvdb.com/series/{series_id}/episodes/{idstr}"}],
             }
-            log_string = f"Now Playing {idstr} - {details_text}"
+            log_string = f"Now Playing: {idstr} - {details_text}"
         else:
             fallback_title = fallback_title_from_filename(idstr) if is_filename(idstr) else idstr
             presenceData = {
@@ -319,7 +339,7 @@ def build_presence(dataIn):
                 },
                 "instance": True,
             }
-            log_string = f"Now Playing {idstr} - {fallback_title}"
+            log_string = f"Now Playing: {idstr} - {fallback_title}"
 
     elif is_media or is_music:
         fallback_title = fallback_title_from_filename(idstr) if is_filename(idstr) else idstr
@@ -355,7 +375,7 @@ def build_presence(dataIn):
             presenceData["buttons"] = [{"label": "Title Info", "url": f"{APIURL}/title.php?{XMID}"}]
         elif 'name' in dataIn and dataIn['name']:
             presenceData['details'] = dataIn['name']
-        log_string = f"Now Playing {dataIn['id']} - {TitleName}"
+        log_string = f"Now Playing: {dataIn['id']} - {TitleName}"
 
     return presenceData, log_string
 

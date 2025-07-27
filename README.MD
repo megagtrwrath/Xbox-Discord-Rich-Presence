@@ -58,6 +58,14 @@ RelayPort=1102
 7. Profit!
 8. (Optional) If you'd like to automatically launch Media Presence upon startup, add `xbmc.executebuiltin("XBMC.RunScript(Q:/scripts/MediaPresence/default.py)")` to `autoexec.py` in `Q:/scripts` (create the file if it's not available by default).
 (Please note that this version of the xbdStats server does NOT support the Xbox 360 at all, this is solely for the original Xbox until further notice).
+9. (Optional) If you'd like to seamlessly launch games from the Games menu in XBMC, add the following to the end of Q:/system/keymaps/gamepad.xml (this will set "Black" / "RB to launch your game and send presence automatically, but any free button can be mapped instead)
+```
+  <Window1>
+    <gamepad>
+      <black>RunScript(Q:\skin\Cortana-X\scripts\chat\relay.py)</black>
+    </gamepad>
+  </Window1>
+```
 
 ## Server
 

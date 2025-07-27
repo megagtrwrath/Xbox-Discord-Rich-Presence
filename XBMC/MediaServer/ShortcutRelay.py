@@ -30,7 +30,7 @@ def discover_server(timeout=5):
         while True:
             data, addr = sock.recvfrom(4096)
             if data == b'XBDSTATS_ONLINE':
-                xbmc.executebuiltin('XBMC.Notification("sakuraPresence", "Server found!", 4000, icon-cortana.png)')
+                xbmc.executebuiltin('XBMC.Notification("sakuraPresence", "Server found!", 4000)')
                 return addr[0]
     except socket.timeout:
         return None

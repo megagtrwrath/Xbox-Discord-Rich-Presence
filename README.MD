@@ -62,7 +62,7 @@ RelayPort=1102
 ```
   <Window1>
     <gamepad>
-      <black>RunScript(Q:\skin\Cortana-X\scripts\chat\relay.py)</black>
+      <black>RunScript(Q:\scripts\ShortcutRelay\default.py)</black>
     </gamepad>
   </Window1>
 ```

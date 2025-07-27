@@ -4,21 +4,24 @@
 # |  _||  _  | | |   | | |  _  | | | || | | | | | | | | |
 # | |  | | | |_| |_  | | | | | \ \_/ /\ \_/ /_| |_| |/ / 
 # \_|  \_| |_/\___/  \_/ \_| |_/\___/  \___/ \___/|___/  
-# ShortcutRelayPy 2.0 - Simple Discord Rich Presence script for XBMC4Xbox / XBMC4Gamers. For use with Mobcat/MrMilenko's "xbdStats" server or my own fork. Now with 100% more UDP auto-detection!
+# sakuraPresence 0.5 - Simple Discord Rich Presence script for XBMC4Xbox / XBMC4Gamers. For use with Mobcat/MrMilenko's "xbdStats" server or my own fork (sakuraPresence). Now with 100% more UDP auto-detection!
 
 import xbmc, xbmcgui
 import os
 import socket
 import json
 import struct
+import hashlib
 
 # Server port and default path
 SERVER_PORT = 1102
 DEFAULT_PATH = ''  # Optional: set to something like 'F:/Games/Retail' for faster browsing
 
+BLOCKLIST = {"4D5307E6", "FFFFFEFF", "00000000", "0", "FFFF051F", "FFFF0002"} # Does nothing (yet)
+# [FFFF0002 - Default NXDK titleID] | 
+
 # Auto-discovery via UDP broadcast
 def discover_server(timeout=5):
-    """Listen for XBDSTATS_ONLINE UDP broadcasts and return the sender's IP."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.bind(('', SERVER_PORT))
@@ -27,6 +30,7 @@ def discover_server(timeout=5):
         while True:
             data, addr = sock.recvfrom(4096)
             if data == b'XBDSTATS_ONLINE':
+                xbmc.executebuiltin('XBMC.Notification("sakuraPresence", "Server found!", 4000, icon-cortana.png)')
                 return addr[0]
     except socket.timeout:
         return None
@@ -114,20 +118,37 @@ def send_to_server(data, server_ip):
         xbmc.log("Send Error: %s" % str(e), level=xbmc.LOGERROR)
         return False
 
-# Launch the game
+# Launch the game (Xbox)
 def launch_game(xbe_path):
     xbmc.executebuiltin('XBMC.RunXBE(%s)' % xbe_path)
-
+# Launch the game (Xbox 360)
 def launch_game_xex(xex_path):
     xbmc.executebuiltin('XBMC.RunXEX(%s)' % xex_path)
+
+def get_selected_game_path():
+    try:
+        path = xbmc.getInfoLabel('ListItem.Path')
+        filename = xbmc.getInfoLabel('ListItem.FilenameAndPath')
+
+        full_path = filename or path
+
+        if full_path and (full_path.lower().endswith('.xbe') or full_path.lower().endswith('.xex')):
+            if os.path.isfile(full_path):
+                return full_path
+    except Exception as e:
+        xbmc.log("Error reading selected listitem via getInfoLabel: %s" % str(e), xbmc.LOGERROR)
+    return None
 
 def main():
     server_ip = discover_server()
     if not server_ip:
-        xbmc.executebuiltin('XBMC.Notification("Xbox Discord Rich Presence", "No xbdStats server found!", 4000)')
+        xbmc.executebuiltin('XBMC.Notification("Xbox Discord Rich Presence", "No xbdStats / sakuraPresence server found!", 4000)')
         return
 
-    xbe_path = select_xbe()
+    xbe_path = get_selected_game_path()
+
+    if not xbe_path:
+        xbe_path = select_xbe()
     if not xbe_path:
         return
 
@@ -140,11 +161,13 @@ def main():
     else:
         titleid = read_titleid(xbe_path)
 
-    payload = {'id': titleid if titleid else folder_name}
-    if is_xex:
-        payload['xbox360'] = True
+    if not titleid or titleid in BLOCKLIST:
+       payload = {'id': titleid} # Hacky workaround because MD5 isn't supported here (yet)
     else:
-        payload['game'] = True
+        payload = {'id': titleid}
+
+    # Sends 'xbox360' as console if sending XEX, otherwise send 'game' (changing to 'xbox' soon!)
+    payload['xbox360' if is_xex else 'game'] = True
 
     if send_to_server(payload, server_ip):
         if is_xex:

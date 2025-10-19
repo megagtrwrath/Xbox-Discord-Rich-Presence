@@ -1,0 +1,19 @@
+# xbdStats Daemon- Provides Discord Rich Presence for Original Xbox and Xbox 360
+[Unit]
+Description=Discord Rich Presence for Original Xbox and Xbox 360
+[Service]
+#file access
+ProtectSystem=false
+ReadWritePaths=/usr/share/xbdstats /tmp
+PrivateTmp=false
+WorkingDirectory=/usr/share/xbdstats
+
+# Environment variables
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+ExecStart=/usr/share/xbdstats/xbdStats-go-linux
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

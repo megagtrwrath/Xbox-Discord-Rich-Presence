@@ -11,7 +11,9 @@ If you need to make any alterations, please let me know! - Mega
 3. Configure the xbdStats.ini to match your needs. (This allows you to enable 360 support, and other features)
 4. Copy the now able to run ```xbdStats-go-linux``` client, the ```xbdStats.ini``` and the ```xbox360.json``` files to ```/usr/share/xbdstats``` (You can change this if you want, but will require editing the daemon!)
 The folder should look like this:
+
 ![Folder](images/folder.png "Folder")
+
 5. Copy the ```xbdstats-daemon.service``` to where your Distro stores it's user services. for Arch, this is ```/etc/systemd/user/```
 6. Now run systemctl --user enable --now xbdstats-daemon.service
 
@@ -22,4 +24,5 @@ All you need to do is have Discord also running, and turn on a game in an Rich P
 You can check on it's status at any time by running ```journalctl --user -u xbdstats-daemon```
 I would advise using GREP to avoid seeing all historical logs of this daemon, like below
 ```journalctl --user -u xbdstats-daemon | grep "Oct 18"```
+
 ![Log Demo](images/logs.png "Log Demo")
